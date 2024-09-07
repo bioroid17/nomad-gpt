@@ -37,11 +37,11 @@ class ChatCallbackHandler(BaseCallbackHandler):
 @st.cache_data(show_spinner="Embedding file...")
 def embed_file(file):
     file_content = file.read()
-    file_path = f"./.cache/files/{file.name}"
+    file_path = f"./.cache/documentgpt/files/{file.name}"
     with open(file_path, "wb") as f:
         f.write(file_content)
 
-    cache_dir = LocalFileStore(f"./.cache/embeddings/{file.name}")
+    cache_dir = LocalFileStore(f"./.cache/documentgpt/embeddings/{file.name}")
     splitter = CharacterTextSplitter.from_tiktoken_encoder(
         separator="\n",
         chunk_size=600,
@@ -148,7 +148,7 @@ if file:
     retriver = embed_file(file)
     send_message("I'm ready! Ask away!", "ai", save=False)
 
-    pathname = f"./.cache/memories/{file.name}/memory.json"
+    pathname = f"./.cache/documentgpt/memories/{file.name}/memory.json"
     if os.path.exists(pathname) and not st.session_state["messages"]:
         restore_memory(pathname)
 
@@ -168,7 +168,7 @@ if file:
         with st.chat_message("ai"):
             result = chain.invoke(message)
         memory.save_context({"input": message}, {"output": result.content})
-        dirname = f"./.cache/memories/{file.name}/"
+        dirname = f"./.cache/documentgpt/memories/{file.name}/"
         if not os.path.exists(dirname):
             os.mkdir(dirname)
         with open(pathname, "w") as f:
