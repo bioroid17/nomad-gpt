@@ -49,7 +49,7 @@ def embed_file(file):
     )
     loader = UnstructuredFileLoader(file_path)
     docs = loader.load_and_split(text_splitter=splitter)
-    embeddings = OllamaEmbeddings(model="mistral:latest")
+    embeddings = OllamaEmbeddings(model=model)
     cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
     vectorstore = FAISS.from_documents(docs, cached_embeddings)
     retriever = vectorstore.as_retriever()
@@ -100,15 +100,6 @@ def restore_memory(pathname):
             )
 
 
-llm = ChatOllama(
-    model="mistral:latest",
-    temperature=0.1,
-    streaming=True,
-    callbacks=[
-        ChatCallbackHandler(),
-    ],
-)
-
 if "memory" not in st.session_state:
     memory = ConversationBufferMemory(return_messages=True)
     st.session_state["memory"] = memory
@@ -138,6 +129,16 @@ Upload your files on the sidebar.
 with st.sidebar:
     file = st.file_uploader(
         "Upload a .txt .pdf or .docx file.", type=["pdf", "txt", "docx"]
+    )
+    model = st.selectbox("Choose Your model", ("mistral", "llama3"))
+
+    llm = ChatOllama(
+        model=model,
+        temperature=0.1,
+        streaming=True,
+        callbacks=[
+            ChatCallbackHandler(),
+        ],
     )
 
 if file:
