@@ -1,5 +1,5 @@
-from langchain.document_loaders import AsyncChromiumLoader
-from langchain.document_transformers import Html2TextTransformer
+from langchain.document_loaders import SitemapLoader
+from fake_useragent import UserAgent
 import streamlit as st
 import asyncio
 
@@ -9,8 +9,6 @@ st.set_page_config(
     page_title="SiteGPT",
     page_icon="🖥️",
 )
-
-html2text_transformer = Html2TextTransformer()
 
 st.title("SiteGPT")
 
@@ -22,6 +20,23 @@ st.markdown(
 """
 )
 
+# Initialize a UserAgent object
+ua = UserAgent()
+
+
+@st.cache_data(show_spinner="Loading website...")
+def load_website(url):
+    try:
+        loader = SitemapLoader(url)
+        loader.requests_per_second = 1
+        # Set a realistic user agent
+        loader.headers = {"User-Agent": ua.random}
+        docs = loader.load()
+        return docs
+    except Exception as e:
+        return []
+
+
 with st.sidebar:
     url = st.text_input(
         "Write down a URL",
@@ -29,7 +44,9 @@ with st.sidebar:
     )
 
 if url:
-    loader = AsyncChromiumLoader([url])
-    docs = loader.load()
-    transformed = html2text_transformer.transform_documents(docs)
-    st.write(docs)
+    if ".xml" not in url:
+        with st.sidebar:
+            st.error("Please write down a Sitemap URL")
+    else:
+        docs = load_website(url)
+        st.write(docs)
