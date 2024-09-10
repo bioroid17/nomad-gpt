@@ -1,5 +1,11 @@
 from langchain.document_loaders import SitemapLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores.faiss import FAISS
+from langchain.embeddings import OpenAIEmbeddings, CacheBackedEmbeddings
+from langchain.storage import LocalFileStore
+from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 from fake_useragent import UserAgent
 import streamlit as st
 import asyncio
@@ -23,6 +29,47 @@ st.markdown(
 
 # Initialize a UserAgent object
 ua = UserAgent()
+
+llm = ChatOpenAI(
+    temperature=0.1,
+)
+
+answers_prompt = ChatPromptTemplate.from_template(
+    """
+    Using ONLY the following context answer the user's question. If you can't just say you don't know, don't make anything up.
+                                                  
+    Then, give a score to the answer between 0 and 5.
+    If the answer answers the user question the score should be high, else it should be low.
+    Make sure to always include the answer's score even if it's 0.
+    Context: {context}
+                                                  
+    Examples:
+                                                  
+    Question: How far away is the moon?
+    Answer: The moon is 384,400 km away.
+    Score: 5
+                                                  
+    Question: How far away is the sun?
+    Answer: I don't know
+    Score: 0
+                                                  
+    Your turn!
+    Question: {question}
+"""
+)
+
+
+def get_answers(inputs):
+    docs = inputs["docs"]
+    question = inputs["question"]
+    answers_chain = answers_prompt | llm
+    answers = []
+    for doc in docs:
+        result = answers_chain.invoke(
+            {"question": question, "context": doc.page_content}
+        )
+        answers.append(result.content)
+    st.write(answers)
 
 
 def parse_page(soup):
@@ -61,15 +108,22 @@ def load_website(url):
         loader = SitemapLoader(
             url,
             filter_urls=[
-                r"^(.*\/encryption\/).*",
+                r"^(.*\/vectorize\/).*",
             ],
             parsing_function=parse_page,
         )
         loader.requests_per_second = 5
         # Set a realistic user agent
         loader.headers = {"User-Agent": ua.random}
+
         docs = loader.load_and_split(text_splitter=splitter)
-        return docs
+        cache_dir = LocalFileStore(f"./.cache/sitegpt/{url.split('/')[2]}")
+        embeddings = OpenAIEmbeddings()
+        cached_embeddings = CacheBackedEmbeddings.from_bytes_store(
+            embeddings, cache_dir
+        )
+        vector_store = FAISS.from_documents(docs, cached_embeddings)
+        return vector_store.as_retriever()
     except Exception as e:
         return []
 
@@ -85,5 +139,11 @@ if url:
         with st.sidebar:
             st.error("Please write down a Sitemap URL")
     else:
-        docs = load_website(url)
-        st.write(docs)
+        retriever = load_website(url)
+
+        chain = {
+            "docs": retriever,
+            "question": RunnablePassthrough(),
+        } | RunnableLambda(get_answers)
+
+        chain.invoke("How many indexes can a single account have in Vectorize?")
