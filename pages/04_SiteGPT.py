@@ -63,13 +63,54 @@ def get_answers(inputs):
     docs = inputs["docs"]
     question = inputs["question"]
     answers_chain = answers_prompt | llm
-    answers = []
-    for doc in docs:
-        result = answers_chain.invoke(
-            {"question": question, "context": doc.page_content}
-        )
-        answers.append(result.content)
-    st.write(answers)
+    # answers = []
+    # for doc in docs:
+    #     result = answers_chain.invoke(
+    #         {"question": question, "context": doc.page_content}
+    #     )
+    #     answers.append(result.content)
+    # st.write(answers)
+    return {
+        "question": question,
+        "answers": [
+            {
+                "answer": answers_chain.invoke(
+                    {"question": question, "context": doc.page_content}
+                ).content,
+                "source": doc.metadata["source"],
+                "date": doc.metadata["lastmod"],
+            }
+            for doc in docs
+        ],
+    }
+
+
+choose_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """
+            Use ONLY the following pre-existing answers to answer the user's question.
+            Use the answers that have the highest score (more helpful) and favor the most recent ones.
+            Cite sources and return the sources of the answers as they are, do not change them.
+            Answers: {answers}
+            """,
+        ),
+        ("human", "{question}"),
+    ]
+)
+
+
+def choose_answer(inputs):
+    answers = inputs["answers"]
+    question = inputs["question"]
+    choose_chain = choose_prompt | llm
+    condensed = "\n\n".join(
+        f"{answer['answer']}\nSource:{answer['source']}\nData:{answer['date']}\n"
+        for answer in answers
+    )
+
+    return choose_chain.invoke({"question": question, "answers": condensed})
 
 
 def parse_page(soup):
@@ -140,10 +181,17 @@ if url:
             st.error("Please write down a Sitemap URL")
     else:
         retriever = load_website(url)
+        query = st.text_input("Ask a question to the website.")
 
-        chain = {
-            "docs": retriever,
-            "question": RunnablePassthrough(),
-        } | RunnableLambda(get_answers)
+        if query:
+            chain = (
+                {
+                    "docs": retriever,
+                    "question": RunnablePassthrough(),
+                }
+                | RunnableLambda(get_answers)
+                | RunnableLambda(choose_answer)
+            )
 
-        chain.invoke("How many indexes can a single account have in Vectorize?")
+            result = chain.invoke(query)
+            st.markdown(result.content.replace("$", "\$"))
