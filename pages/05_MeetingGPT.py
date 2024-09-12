@@ -10,6 +10,10 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import StrOutputParser
+from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
+from langchain.vectorstores.faiss import FAISS
+from langchain.embeddings import OpenAIEmbeddings, CacheBackedEmbeddings
+from langchain.storage import LocalFileStore
 
 llm = ChatOpenAI(
     temperature=0.1,
@@ -31,6 +35,24 @@ Welcome to MeetingGPT, upload a video and I will give you a transcript, a summar
 Get started by uploading a video file in the sidebar.
 """
 )
+
+splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    chunk_size=800,
+    chunk_overlap=100,
+)
+
+
+@st.cache_data()
+def embed_file(file_path):
+
+    cache_dir = LocalFileStore(f"./.cache/meetinggpt/embeddings/{video.name}")
+    loader = TextLoader(file_path)
+    docs = loader.load_and_split(text_splitter=splitter)
+    embeddings = OpenAIEmbeddings()
+    cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
+    vectorstore = FAISS.from_documents(docs, cached_embeddings)
+    retriever = vectorstore.as_retriever()
+    return retriever
 
 
 @st.cache_data()
@@ -71,6 +93,10 @@ def transcribe_chunks(chunk_folder, destination):
                 audio_file,
             )
             text_file.write(transcript["text"])
+
+
+def format_docs(docs):
+    return "\n\n".join(document.page_content for document in docs)
 
 
 with st.sidebar:
@@ -114,10 +140,6 @@ if video:
 
         if start:
             loader = TextLoader(transcript_path)
-            splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-                chunk_size=800,
-                chunk_overlap=100,
-            )
             docs = loader.load_and_split(text_splitter=splitter)
 
             first_summary_prompt = ChatPromptTemplate.from_template(
@@ -162,3 +184,38 @@ if video:
                     )
                     st.write(summary)
             st.write(summary)
+
+    with qa_tab:
+        retriever = embed_file(transcript_path)
+        question = st.text_input("Enter your question about the video.")
+        docs = retriever.invoke(question)
+
+        answer_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """
+            Your job is to answer the user's question using the given context.
+            The context is a transcript from a video.
+            Answer the question using ONLY the following context. If you don't know the answer just say you don't know. DON'T make anything up.
+            
+            Context: {context}
+            """,
+                ),
+                ("human", "{question}"),
+            ]
+        )
+
+        answer_chain = (
+            {
+                "context": retriever | RunnableLambda(format_docs),
+                "question": RunnablePassthrough(),
+            }
+            | answer_prompt
+            | llm
+            | StrOutputParser()
+        )
+
+        answer = answer_chain.invoke(question)
+
+        st.write(answer)
