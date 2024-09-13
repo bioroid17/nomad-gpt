@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 st.set_page_config(
     page_title="InvestorGPT",
-    page_icon="💼",
+    page_icon="📈",
 )
 
 st.title("InvestorGPT")
