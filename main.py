@@ -6,7 +6,7 @@ app = FastAPI(
     description="Get a real quote said by Nicolacus Maximus himself.",
     servers=[
         {
-            "url": "https://battery-wellness-motor-entertainment.trycloudflare.com",
+            "url": "https://finance-becomes-carbon-record.trycloudflare.com",
         },
     ],
 )
@@ -27,6 +27,7 @@ class Quote(BaseModel):
     description="Upon receiving a GET request this endpoint will return a real quiote said by Nicolacus Maximus himself.",
     response_description="A Quote object that contains the quote said by Nicolacus Maximus and the date when the quote was said.",
     response_model=Quote,
+    openapi_extra={"x-openai-isConsequential": False},
 )
 def get_quote():
     return {
