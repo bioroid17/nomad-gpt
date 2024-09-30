@@ -1,8 +1,8 @@
 env/
+env-crewai/
 .env
 files/
 .cache/
 .streamlit/
 .DS_Store
-falcon.bin
 __pycache__/
