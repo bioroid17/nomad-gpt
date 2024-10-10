@@ -26,7 +26,7 @@ Salesforce maintains a strong balance sheet, with total assets of $36.78 billion
 - **Current Ratio:** The current ratio is 1.53, indicating that Salesforce has more than enough current assets to cover its current liabilities, which adds to the company’s financial resilience.
 
 **5. Insider Trading Data:**
-Recent insider trading data indicates a mixed sentiment among insiders. While there has been some selling of shares by executives, it is essential to note that insider selling can occur for various reasons unrelated to the company's performance, such as personal financial planning. 
+Recent insider trading data indicates a mixed sentiment among insiders. While there has been some selling of shares by executives, it is essential to note that insider selling can occur for various reasons unrelated to the company's performance, such as personal financial planning.
 
 - **Net Insider Transactions:** In the last quarter, there was a net increase in insider selling, but strategic hires and continued investment in the company by some insiders suggest confidence in Salesforce's long-term prospects.
 
